@@ -39,6 +39,7 @@ public final class TableInfo {
 	private Class<? extends Model> mType;
 	private String mTableName;
 	private String mIdName = Table.DEFAULT_ID_NAME;
+    private boolean mView;
 
 	private Map<Field, String> mColumnNames = new LinkedHashMap<Field, String>();
 
@@ -54,9 +55,11 @@ public final class TableInfo {
         if (tableAnnotation != null) {
 			mTableName = tableAnnotation.name();
 			mIdName = tableAnnotation.id();
+            mView = tableAnnotation.view();
 		}
 		else {
 			mTableName = type.getSimpleName();
+            mView = View.class.isAssignableFrom(type);
         }
 
         // Manually add the id column since it is not declared like the other columns.
@@ -95,7 +98,11 @@ public final class TableInfo {
 		return mIdName;
 	}
 
-	public Collection<Field> getFields() {
+    public boolean isView() {
+        return mView;
+    }
+
+    public Collection<Field> getFields() {
 		return mColumnNames.keySet();
 	}
 

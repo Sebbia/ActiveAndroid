@@ -157,6 +157,7 @@ public final class DatabaseHelper extends SQLiteOpenHelper {
 		db.beginTransaction();
 		try {
 			for (TableInfo tableInfo : Cache.getTableInfos()) {
+				if(tableInfo.isView()) continue;
 				db.execSQL(SQLiteUtils.createTableDefinition(tableInfo));
 			}
 			db.setTransactionSuccessful();

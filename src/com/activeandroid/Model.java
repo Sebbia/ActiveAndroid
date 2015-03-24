@@ -63,11 +63,11 @@ public abstract class Model {
 	// PUBLIC METHODS
 	//////////////////////////////////////////////////////////////////////////////////////
 
-	public final Long getId() {
+	public Long getId() {
 		return mId;
 	}
 
-	public final void delete() {
+	public void delete() {
 		Cache.openDatabase().delete(mTableInfo.getTableName(), idName+"=?", new String[] { getId().toString() });
 		Cache.removeEntity(this);
 
@@ -75,7 +75,7 @@ public abstract class Model {
 				.notifyChange(ContentProvider.createUri(mTableInfo.getType(), mId), null);
 	}
 
-	public final Long save() {
+	public Long save() {
 		final SQLiteDatabase db = Cache.openDatabase();
 		
 		ContentValues values = new ContentValues();
