@@ -1,12 +1,17 @@
 package com.activeandroid.sebbia.automigration;
 
+import android.text.TextUtils;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-
-import android.text.TextUtils;
+import java.util.regex.Pattern;
 
 public final class SQLTableInfo {
+
+	private static final Pattern S_PLUS = Pattern.compile("\\s+");
+	private static final Pattern CREATE_TABLE = Pattern.compile("(?i)CREATE TABLE ");
+	private static final Pattern UNIQUE = Pattern.compile(", UNIQUE \\(.*\\) ON CONFLICT (ROLLBACK|ABORT|FAIL|IGNORE|REPLACE)");
 	
 	public static String constructSchema(String tableName, List<SQLColumnInfo> columns) {
 		String schema = "CREATE TABLE " + tableName + "(%s);";
@@ -29,14 +34,15 @@ public final class SQLTableInfo {
 		if (TextUtils.isEmpty(sqlSchema))
 			throw new IllegalArgumentException("Cannot construct SqlTableInfo from empty sqlSchema");
 		
-		sqlSchema = sqlSchema.replaceAll("\\s+", " ");
-		this.mSchema = new String(sqlSchema);
+		sqlSchema = S_PLUS.matcher(sqlSchema).replaceAll(" ");
+		this.mSchema = sqlSchema;
 		
 		if (!sqlSchema.toUpperCase(Locale.US).startsWith("CREATE TABLE") || !sqlSchema.contains("(") || !sqlSchema.contains(")"))
 			throw new IllegalArgumentException("sqlSchema doesn't appears to be valid");
 		mColumns = new ArrayList<SQLColumnInfo>();
 		
-		sqlSchema = sqlSchema.replaceAll("(?i)CREATE TABLE ", "");
+		sqlSchema = CREATE_TABLE.matcher(sqlSchema).replaceAll("");
+		sqlSchema = UNIQUE.matcher(sqlSchema).replaceAll("");
 		mTableName = sqlSchema.substring(0, sqlSchema.indexOf('(')).replace("\"", "");
 		
 		String columnDefinitions = sqlSchema.substring(sqlSchema.indexOf('(') + 1, sqlSchema.lastIndexOf(')'));
