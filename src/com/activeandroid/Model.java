@@ -293,10 +293,6 @@ public abstract class Model {
 				Log.e(e.getClass().getName(), e);
 			}
 		}
-
-		if (mId != null) {
-			Cache.addEntity(this);
-		}
 	}
 	
 	

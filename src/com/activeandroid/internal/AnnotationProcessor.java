@@ -16,6 +16,7 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic.Kind;
 import javax.tools.JavaFileObject;
@@ -134,7 +135,8 @@ public final class AnnotationProcessor extends AbstractProcessor {
 
 	private String getLoadFromCursorCode(Set<VariableElement> columns) {
 		StringBuilder stringBuilder = new StringBuilder();
-
+		stringBuilder.append("    int i = -1; // column index \n");
+		final String nullCheck = CURSOR + ".isNull(i) ? null : ";
 		for (VariableElement column : columns) {
 			Column annotation = column.getAnnotation(Column.class);
 
@@ -147,40 +149,56 @@ public final class AnnotationProcessor extends AbstractProcessor {
 			boolean notPrimitiveType = typeMirror instanceof DeclaredType;
 			String type = typeMirror.toString() + ".class";
 			String getColumnIndex = COLUMNS_ORDERED + ".indexOf(\"" + fieldName + "\")";
+			String getColumnIndexAssignment = "i = " + getColumnIndex + "; \n";
 
+			stringBuilder.append("    " + getColumnIndexAssignment );
 			if (notPrimitiveType) {
 				stringBuilder.append("    if (ModelHelper.isSerializable(" + type + ")) {\n");
-				stringBuilder.append("      " + MODEL + "." + column.getSimpleName() + " = (" + typeMirror.toString() + ") ModelHelper.getSerializable(cursor, " + type + ", " + getColumnIndex + ");\n");
+				stringBuilder.append("      " + MODEL + "." + column.getSimpleName() + " = (" + typeMirror.toString() + ") ModelHelper.getSerializable(cursor, " + type + ", i);\n");
 				stringBuilder.append("    } else {\n");
 				stringBuilder.append("      " + MODEL + "." + column.getSimpleName() + " = ");
 			} else {
 				stringBuilder.append("    " + MODEL + "." + column.getSimpleName() + " = ");
 			}
 
-			if (isTypeOf(typeMirror, Integer.class) || isTypeOf(typeMirror, int.class))
-				stringBuilder.append(CURSOR + ".getInt(" + getColumnIndex + ");\n");
-			else if (isTypeOf(typeMirror, Byte.class) || isTypeOf(typeMirror, byte.class))
-				stringBuilder.append(CURSOR + ".getInt(" + getColumnIndex + ");\n");
-			else if (isTypeOf(typeMirror, Short.class) || isTypeOf(typeMirror, short.class))
-				stringBuilder.append(CURSOR + ".getInt(" + getColumnIndex + ");\n");
-			else if (isTypeOf(typeMirror, Long.class) || isTypeOf(typeMirror, long.class))
-				stringBuilder.append(CURSOR + ".getLong(" + getColumnIndex + ");\n");
-			else if (isTypeOf(typeMirror, Float.class) || isTypeOf(typeMirror, float.class))
-				stringBuilder.append(CURSOR + ".getFloat(" + getColumnIndex + ");\n");
-			else if (isTypeOf(typeMirror, Double.class) || isTypeOf(typeMirror, double.class))
-				stringBuilder.append(CURSOR + ".getDouble(" + getColumnIndex + ");\n");
-			else if (isTypeOf(typeMirror, Boolean.class) || isTypeOf(typeMirror, boolean.class))
-				stringBuilder.append(CURSOR + ".getInt(" + getColumnIndex + ") != 0;\n");
-			else if (isTypeOf(typeMirror, Character.class) || isTypeOf(typeMirror, char.class))
-				stringBuilder.append(CURSOR + ".getString(" + getColumnIndex + ");\n");
+			if (isTypeOf(typeMirror, Integer.class) || isTypeOf(typeMirror, Byte.class) || isTypeOf(typeMirror, Short.class) )
+				stringBuilder.append(nullCheck).append(CURSOR + ".getInt(i);\n");
+			else if (isTypeOf(typeMirror, Long.class))
+				stringBuilder.append(nullCheck).append(CURSOR + ".getLong(i);\n");
+			else if (isTypeOf(typeMirror, Float.class))
+				stringBuilder.append(nullCheck).append(CURSOR + ".getFloat(i);\n");
+			else if (isTypeOf(typeMirror, Double.class))
+				stringBuilder.append(nullCheck).append(CURSOR + ".getDouble(i);\n");
+			else if (isTypeOf(typeMirror, int.class))
+				stringBuilder.append(CURSOR + ".getInt(i);\n");
+			else if (isTypeOf(typeMirror, byte.class))
+				stringBuilder.append(CURSOR + ".getInt(i);\n");
+			else if (isTypeOf(typeMirror, short.class))
+				stringBuilder.append(CURSOR + ".getInt(i);\n");
+			else if (isTypeOf(typeMirror, long.class))
+				stringBuilder.append(CURSOR + ".getLong(i);\n");
+			else if (isTypeOf(typeMirror, float.class))
+				stringBuilder.append(CURSOR + ".getFloat(i);\n");
+			else if (isTypeOf(typeMirror, double.class))
+				stringBuilder.append(CURSOR + ".getDouble(i);\n");
+			else if (isTypeOf(typeMirror, Boolean.class))
+				stringBuilder.append(nullCheck).append(CURSOR + ".getInt(i) != 0;\n");
+			else if (isTypeOf(typeMirror, boolean.class))
+				stringBuilder.append(CURSOR + ".getInt(i) != 0;\n");
+			else if (isTypeOf(typeMirror, char.class))
+				stringBuilder.append(CURSOR + ".getString(i);\n");
+			else if (isTypeOf(typeMirror, Character.class))
+				stringBuilder.append(nullCheck).append(CURSOR + ".getString(i);\n");
 			else if (isTypeOf(typeMirror, String.class))
-				stringBuilder.append(CURSOR + ".getString(" + getColumnIndex + ");\n");
-			else if (isTypeOf(typeMirror, Byte[].class) || isTypeOf(typeMirror, byte[].class))
-				stringBuilder.append(CURSOR + ".getBlob(" + getColumnIndex + ");\n");
+				stringBuilder.append(nullCheck).append(CURSOR + ".getString(i);\n");
+			else if (isTypeOf(typeMirror, byte[].class))
+				stringBuilder.append(CURSOR + ".getBlob(i);\n");
+			else if (isTypeOf(typeMirror, Byte[].class))
+				stringBuilder.append(nullCheck).append(CURSOR + ".getBlob(i);\n");
 			else if (isTypeOf(typeMirror, Model.class))
-				stringBuilder.append("(" + typeMirror.toString() + ") ModelHelper.getModel(cursor, " + type + ", " + getColumnIndex + ");\n");
+				stringBuilder.append("(" + typeMirror.toString() + ") ModelHelper.getModel(cursor, " + type + ", i);\n");
 			else if (isTypeOf(typeMirror, Enum.class))
-				stringBuilder.append("(" + typeMirror.toString() + ") ModelHelper.getEnum(cursor, " + type + ", " + getColumnIndex + ");\n");
+				stringBuilder.append("(" + typeMirror.toString() + ") ModelHelper.getEnum(cursor, " + type + ", i);\n");
 			else
 				stringBuilder.append(" null;\n");
 			if (notPrimitiveType) {
@@ -205,7 +223,7 @@ public final class AnnotationProcessor extends AbstractProcessor {
 			boolean notPrimitiveType = typeMirror instanceof DeclaredType;
 			String type = typeMirror.toString() + ".class";
 			String getValue = MODEL + "." + column.getSimpleName();
-			
+
 			if (notPrimitiveType) {
 				stringBuilder.append("    if (ModelHelper.isSerializable(" + type + ")) {\n");
 				stringBuilder.append("      ModelHelper.setSerializable(" + CONTENT_VALUES + ", " + type + ", " + getValue + ", \"" + fieldName + "\");\n");  
@@ -255,6 +273,9 @@ public final class AnnotationProcessor extends AbstractProcessor {
 	private boolean isTypeOf(TypeMirror typeMirror, Class<?> type) {
 		if (type.getName().equals(typeMirror.toString()))
 			return true;
+
+		if ((typeMirror.getKind() == TypeKind.ARRAY) && type.isArray())
+			return typeMirror.toString().equals(type.getComponentType() + "[]");
 
 		if (typeMirror instanceof DeclaredType == false)
 			return false;

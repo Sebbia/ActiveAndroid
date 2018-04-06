@@ -1,5 +1,7 @@
 package com.activeandroid.automigration;
 
+import android.util.Log;
+
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,7 +41,12 @@ class TableDifference {
 					if (existingColumnInfo.getType() == sqlColumnInfo.getType()) {
 						mDifferences.put(sqlColumnInfo, existingColumnInfo);
 					} else {
-						throw new IncompatibleColumnTypesException(tableInfo.getTableName(), existingColumnInfo.getName(), existingColumnInfo.getType(), sqlColumnInfo.getType());
+						// allow column type changes just to let SQLite attempt to cast these values
+						Log.w(TableDifference.class.getName(), "potentially incompatible column types (table='"
+								+ tableInfo.getTableName() + "' column='" + existingColumnInfo.getName()
+								+ "' current type='" + existingColumnInfo.getType() + "' new type='"
+								+ sqlColumnInfo.getType() + "')");
+						mDifferences.put(sqlColumnInfo, existingColumnInfo);
 					}
 				}
 				break;

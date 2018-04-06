@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
 
 import com.activeandroid.serializer.CalendarSerializer;
 import com.activeandroid.serializer.FileSerializer;
@@ -41,6 +43,12 @@ import com.activeandroid.util.ReflectionUtils;
 import dalvik.system.DexFile;
 
 final class ModelInfo {
+	private static final String PREFS_FILE = "multidex.version";
+	private static final String SECONDARY_FOLDER_NAME = "code_cache" + File.separator + "secondary-dexes";
+	private static final String EXTRACTED_NAME_EXT = ".classes";
+	private static final String KEY_DEX_NUMBER = "dex.number";
+	private static final String EXTRACTED_SUFFIX = ".zip";
+
 	//////////////////////////////////////////////////////////////////////////////////////
 	// PRIVATE METHODS
 	//////////////////////////////////////////////////////////////////////////////////////
@@ -125,34 +133,75 @@ final class ModelInfo {
 
 	private void scanForModel(Context context) throws IOException {
 		String packageName = context.getPackageName();
-		String sourcePath = context.getApplicationInfo().sourceDir;
 		List<String> paths = new ArrayList<String>();
 
-		if (sourcePath != null && !(new File(sourcePath).isDirectory())) {
-			DexFile dexfile = new DexFile(sourcePath);
-			Enumeration<String> entries = dexfile.entries();
+		try {
+			for (String sourcePath : getSourcePaths(context)) {
+				try {
+					if (sourcePath != null && !(new File(sourcePath).isDirectory())) {
+						DexFile dexfile;
+						if (sourcePath.endsWith(EXTRACTED_SUFFIX))
+							dexfile = DexFile.loadDex(sourcePath, sourcePath + ".tmp", 0);
+						else
+							dexfile = new DexFile(sourcePath);
+						Enumeration<String> entries = dexfile.entries();
 
-			while (entries.hasMoreElements()) {
-				paths.add(entries.nextElement());
-			}
-		}
-		// Robolectric fallback
-		else {
-			ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-			Enumeration<URL> resources = classLoader.getResources("");
+						while (entries.hasMoreElements()) {
+							paths.add(entries.nextElement());
+						}
+					}
+					// Robolectric fallback
+					else {
+						ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+						Enumeration<URL> resources = classLoader.getResources("");
 
-			while (resources.hasMoreElements()) {
-				String path = resources.nextElement().getFile();
-				if (path.contains("bin") || path.contains("classes")) {
-					paths.add(path);
+						while (resources.hasMoreElements()) {
+							String path = resources.nextElement().getFile();
+							if (path.contains("bin") || path.contains("classes")) {
+								paths.add(path);
+							}
+						}
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
 			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 
 		for (String path : paths) {
 			File file = new File(path);
 			scanForModelClasses(file, packageName, context.getClassLoader());
 		}
+	}
+
+	private static SharedPreferences getMultiDexPreferences(Context context) {
+		int mode = Context.MODE_PRIVATE | Context.MODE_MULTI_PROCESS;
+		return context.getSharedPreferences(PREFS_FILE, mode);
+	}
+
+	private static List<String> getSourcePaths(Context context) throws Exception {
+		ApplicationInfo applicationInfo = context.getPackageManager().getApplicationInfo(context.getPackageName(), 0);
+		File sourceApk = new File(applicationInfo.sourceDir);
+		File dexDir = new File(applicationInfo.dataDir, SECONDARY_FOLDER_NAME);
+
+		List<String> sourcePaths = new ArrayList<String>();
+		sourcePaths.add(applicationInfo.sourceDir);
+
+		String extractedFilePrefix = sourceApk.getName() + EXTRACTED_NAME_EXT;
+		int totalDexNumber = getMultiDexPreferences(context).getInt(KEY_DEX_NUMBER, 1);
+
+		for (int secondaryNumber = 2; secondaryNumber <= totalDexNumber; secondaryNumber++) {
+			String fileName = extractedFilePrefix + secondaryNumber + EXTRACTED_SUFFIX;
+			File extractedFile = new File(dexDir, fileName);
+			if (extractedFile.isFile())
+				sourcePaths.add(extractedFile.getAbsolutePath());
+			else
+				throw new Exception("Missing extracted secondary dex file '" + extractedFile.getPath() + "'");
+		}
+
+		return sourcePaths;
 	}
 
 	private void scanForModelClasses(File path, String packageName, ClassLoader classLoader) {

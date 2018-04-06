@@ -40,6 +40,7 @@ public final class From implements Sqlable {
 	private String mOrderBy;
 	private String mLimit;
 	private String mOffset;
+    private boolean useCache = true;
 
 	private List<Object> mArguments;
 
@@ -295,7 +296,7 @@ public final class From implements Sqlable {
 
 	public <T extends Model> List<T> execute() {
 		if (mQueryBase instanceof Select) {
-			return SQLiteUtils.rawQuery(mType, toSql(), getArguments());
+			return SQLiteUtils.rawQuery(mType, toSql(), getArguments(), useCache);
 			
 		} else {
 			SQLiteUtils.execSql(toSql(), getArguments());
@@ -308,7 +309,7 @@ public final class From implements Sqlable {
 	public <T extends Model> T executeSingle() {
 		if (mQueryBase instanceof Select) {
 			limit(1);
-			return (T) SQLiteUtils.rawQuerySingle(mType, toSql(), getArguments());
+			return (T) SQLiteUtils.rawQuerySingle(mType, toSql(), getArguments(), useCache);
 			
 		} else {
 			limit(1);
@@ -343,4 +344,15 @@ public final class From implements Sqlable {
 
 		return args;
 	}
+
+    /**
+     * Retrieve entities from ActiveAndroid's cache. The cache is enabled by default.
+     * @param useCache
+     * @return
+     */
+    public From setUseCache(boolean useCache) {
+        this.useCache = useCache;
+        return this;
+    }
+
 }

@@ -100,12 +100,16 @@ public final class SQLiteUtils {
 		Cache.openDatabase().execSQL(sql, bindArgs);
 	}
 
-	public static <T extends Model> List<T> rawQuery(Class<? extends Model> type, String sql, String[] selectionArgs) {
+	public static <T extends Model> List<T> rawQuery(Class<? extends Model> type, String sql, String[] selectionArgs, boolean useCache) {
 		Cursor cursor = Cache.openDatabase().rawQuery(sql, selectionArgs);
-		List<T> entities = processCursor(type, cursor);
+		List<T> entities = processCursor(type, cursor, useCache);
 		cursor.close();
 
 		return entities;
+	}
+
+	public static <T extends Model> List<T> rawQuery(Class<? extends Model> type, String sql, String[] selectionArgs){
+		return rawQuery(type, sql, selectionArgs, true);
 	}
 	  
 	public static int intQuery(final String sql, final String[] selectionArgs) {
@@ -116,14 +120,18 @@ public final class SQLiteUtils {
         return number;
 	}
 
-	public static <T extends Model> T rawQuerySingle(Class<? extends Model> type, String sql, String[] selectionArgs) {
-		List<T> entities = rawQuery(type, sql, selectionArgs);
+	public static <T extends Model> T rawQuerySingle(Class<? extends Model> type, String sql, String[] selectionArgs, boolean useCache) {
+		List<T> entities = rawQuery(type, sql, selectionArgs, useCache);
 
 		if (entities.size() > 0) {
 			return entities.get(0);
 		}
 
 		return null;
+	}
+
+	public static <T extends Model> T rawQuerySingle(Class<? extends Model> type, String sql, String[] selectionArgs){
+		return rawQuerySingle(type, sql, selectionArgs, true);
 	}
 
 	// Database creation
@@ -358,7 +366,7 @@ public final class SQLiteUtils {
 	}
 
 	@SuppressWarnings("unchecked")
-	public static <T extends Model> List<T> processCursor(Class<? extends Model> type, Cursor cursor) {
+	public static <T extends Model> List<T> processCursor(Class<? extends Model> type, Cursor cursor, boolean useCache) {
 		TableInfo tableInfo = Cache.getTableInfo(type);
 		String idName = tableInfo.getIdName();
 		final List<T> entities = new ArrayList<T>();
@@ -373,13 +381,24 @@ public final class SQLiteUtils {
                  */
                 List<String> columnsOrdered = new ArrayList<String>(Arrays.asList(cursor.getColumnNames()));
 				do {
-					Model entity = Cache.getEntity(type, cursor.getLong(columnsOrdered.indexOf(idName)));
+					Model entity;
+
+					if(useCache) {
+						entity = Cache.getEntity(type, cursor.getLong(columnsOrdered.indexOf(idName)));
+					} else {
+						entity = null;
+					}
+
 					if (entity == null) {
 						entity = (T) entityConstructor.newInstance();
 					}
 
 					entity.loadFromCursor(cursor);
 					entities.add((T) entity);
+
+					// add to cache
+					if (entity.getId() != null)
+						Cache.addEntity(entity);
 				}
 				while (cursor.moveToNext());
 			}
@@ -400,6 +419,10 @@ public final class SQLiteUtils {
 		}
 
 		return entities;
+	}
+
+	public static <T extends Model> List<T> processCursor(Class<? extends Model> type, Cursor cursor){
+		return processCursor(type, cursor, true);
 	}
 
 	private static int processIntCursor(final Cursor cursor) {
